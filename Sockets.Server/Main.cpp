@@ -385,6 +385,8 @@ int main()
 
 		int sendOk;
 
+		cout << recived_message.cmd << " " << recived_message.data << endl;
+
 		switch (recived_message.cmd)
 		{
 			case MSG_PLAY:
