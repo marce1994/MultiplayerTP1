@@ -1,5 +1,7 @@
 # Prerequisites
 *.d
+Release
+Debug
 
 # Compiled Object files
 *.slo
