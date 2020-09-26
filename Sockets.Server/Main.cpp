@@ -252,18 +252,22 @@ public:
 	void startGame(SOCKET* socket) {
 		message_t message;
 		memset(&message, 0, sizeof(message));
-		// Envio el update del tablero
-		message.cmd = MSG_UPDATE_BOARD;
 		memcpy(message.data, _game->_board, sizeof(_game->_board));
-
-		_player1->SentMessage(&message, socket);
-		_player2->SentMessage(&message, socket);
-
-		// Por ahora le doy el turno siempre al player 1
-		memset(&message, 0, sizeof(message));
-		message.cmd = MSG_PLAY;
 		
-		_player1->SentMessage(&message, socket);
+		auto random = rand() % 100 + 1;
+
+		if (random > 50) {
+			message.cmd = MSG_PLAY;
+			_player1->SentMessage(&message, socket);
+			message.cmd = MSG_UPDATE_BOARD;
+			_player2->SentMessage(&message, socket);
+		}
+		else {
+			message.cmd = MSG_UPDATE_BOARD;
+			_player1->SentMessage(&message, socket);
+			message.cmd = MSG_PLAY;
+			_player2->SentMessage(&message, socket);
+		}
 	}
 
 	bool containsPlayer(sockaddr_in* socket)
@@ -280,7 +284,7 @@ public:
 
 		int32_t result = -1;
 		if (_player1->equals(player)) {
-			result = _game->Play(X, playedPosition);
+			result = _game->Play(O, playedPosition);
 			memset(message, 0, sizeof(*message));
 			if (result < 0)
 			{
@@ -313,7 +317,7 @@ public:
 			}
 		}
 		else if (_player2->equals(player)){
-			result = _game->Play(O, playedPosition);
+			result = _game->Play(X, playedPosition);
 			memset(message, 0, sizeof(*message));
 			if (result < 0)
 			{
@@ -416,10 +420,16 @@ int main()
 			continue; // do nothing
 		}
 
+		cout << "partidas:" << endl;
+		for (auto room: *_games)
+		{
+			cout << room.guidGame.Data1;
+			cout << "////";
+		}
+		cout << endl;
+
 		int sendOk = 0;
-
-		cout << recived_message.cmd << " " << recived_message.data << endl;
-
+		
 		switch (recived_message.cmd)
 		{
 			case MSG_PLAY:
@@ -427,8 +437,6 @@ int main()
 					int32_t test;
 					memset(&test, 0, sizeof(test));
 					memcpy(&test, (char*)&recived_message.data, sizeof(test));
-
-					cout << "MSG_PLAY: " << test << endl;
 
 					auto room = getRoomPlayer(_games, &client);
 					if (room == NULL)
