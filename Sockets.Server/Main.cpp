@@ -15,10 +15,9 @@ class Game {
 public:
 	int32_t _board[3][3];
 
-	Game() {
-		memset(&_board, 0, sizeof(_board));
-		int32_t board[3][3] = { { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY} };
-		memcpy(&_board, &board, sizeof(_board));
+	Game()
+	{
+		memset(&_board, EMPTY, sizeof(_board));
 	}
 
 	int32_t Play(PlayerType player, int32_t position) {
@@ -77,8 +76,10 @@ public:
 
 		if (result > 0)
 			return X;
-		else
+		else if (result < 0)
 			return O;
+		else
+			return 0;
 	}
 
 private:
@@ -183,18 +184,20 @@ private:
 	char _alias[255];
 
 public:
+
 	Player(sockaddr_in* client) {
 		memset(&_client, 0, sizeof(_client));
 		memcpy(&_client, client, sizeof(_client));
 	}
 
-	void SentMessage(const message_t& message, const SOCKET& socket_out) {
-		int sendOk = sendto(socket_out, (char*)&message, sizeof(message), 0, (sockaddr*)&_client, sizeof(_client));
+	void SentMessage(message_t* message, SOCKET* socket_out) {
+		int sendOk = sendto(*socket_out, (char*)message, sizeof(*message), 0, (sockaddr*)&_client, sizeof(_client));
 	}
 
 	void SetAlias(char* alias) {
 		memset(_alias, 0, sizeof(_alias));
 		memcpy(&_alias, alias, sizeof(_alias));
+		cout << "Player: " << _alias << endl;
 	}
 
 	char* GetIp() {
@@ -210,8 +213,14 @@ public:
 	}
 
 	bool equals(Player& player) {
-		if (((string)player.GetIp()) + ((string)player.GetPort()) == ((string)GetIp()) + ((string)GetPort()))
-			return true;
+		if (memcmp(&player._client.sin_port, &_client.sin_port, sizeof(_client.sin_port)) == 0)
+		{
+			if (memcmp(&player._client.sin_addr, &_client.sin_addr, sizeof(_client.sin_addr)) == 0)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	char* GetPort() {
@@ -233,34 +242,34 @@ public:
 		_game = new Game();
 	}
 
-	void startGame(const SOCKET& socket) {
+	void startGame(SOCKET* socket) {
 		message_t message;
 		memset(&message, 0, sizeof(message));
 		// Envio el update del tablero
 		message.cmd = MSG_UPDATE_BOARD;
 		memcpy(message.data, _game->_board, sizeof(_game->_board));
 
-		_player1->SentMessage((const message_t&)message, socket);
-		_player2->SentMessage((const message_t&)message, socket);
+		_player1->SentMessage(&message, socket);
+		_player2->SentMessage(&message, socket);
 
 		// Por ahora le doy el turno siempre al player 1
 		memset(&message, 0, sizeof(message));
 		message.cmd = MSG_PLAY;
 		
-		_player1->SentMessage((const message_t&)message, socket);
+		_player1->SentMessage(&message, socket);
 	}
 
-	bool containsPlayer(sockaddr_in& socket)
+	bool containsPlayer(sockaddr_in* socket)
 	{
-		auto player = Player(&socket);
+		auto player = Player(socket);
 		return _player1->equals(player) || _player2->equals(player);
 	}
 
-	void play(message_t& message, sockaddr_in& socket)
+	void play(message_t* message, sockaddr_in* player_socket, SOCKET* out_socket)
 	{
-		auto player = Player(&socket);
+		auto player = Player(player_socket);
 		int32_t playedPosition;
-		memcpy(&playedPosition, (char*)message.data, sizeof(playedPosition));
+		memcpy(&playedPosition, &message->data, sizeof(playedPosition));
 
 		int32_t result = -1;
 		if (_player1->equals(player))
@@ -269,65 +278,69 @@ public:
 		if (_player2->equals(player)) 
 			result = _game->Play(X, playedPosition);
 
-		memset(&message, 0, sizeof(message));
+		memset(message, 0, sizeof(*message));
 
 		if (result == 1)
 		{
-			memcpy(message.data, _game->_board, sizeof(_game->_board));
+			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 
-			message.cmd = MSG_WIN;
-			_player1->SentMessage((const message_t&)message, (SOCKET&)socket);
+			message->cmd = MSG_WIN;
+			_player1->SentMessage(message, out_socket);
 
-			message.cmd = MSG_LOOSE;
-			_player2->SentMessage((const message_t&)message, (SOCKET&)socket);
+			message->cmd = MSG_LOOSE;
+			_player2->SentMessage(message, out_socket);
 		}
 
 		if (result == 2)
 		{
-			memcpy(message.data, _game->_board, sizeof(_game->_board));
+			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 
-			message.cmd = MSG_LOOSE;
-			_player1->SentMessage((const message_t&)message, (SOCKET&)socket);
+			message->cmd = MSG_LOOSE;
+			_player1->SentMessage(message, out_socket);
 
-			message.cmd = MSG_WIN;
-			_player2->SentMessage((const message_t&)message, (SOCKET&)socket);
+			message->cmd = MSG_WIN;
+			_player2->SentMessage(message, out_socket);
 		}
 		
 		if (result == 0)
 		{
-			memset(&message, 0, sizeof(message));
-
-			message.cmd = MSG_UPDATE_BOARD;
-			memcpy(message.data, _game->_board, sizeof(_game->_board));
-			
 			if (_player1->equals(player))
 			{
-				_player1->SentMessage((const message_t&)message, (SOCKET&)socket);
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_UPDATE_BOARD;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player1->SentMessage(message, out_socket);
 
-				message.cmd = MSG_PLAY;
-				_player2->SentMessage((const message_t&)message, (SOCKET&)socket);
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_PLAY;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player2->SentMessage(message, out_socket);
 			}
 
 			if (_player2->equals(player))
 			{
-				_player2->SentMessage((const message_t&)message, (SOCKET&)socket);
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_UPDATE_BOARD;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player2->SentMessage(message, out_socket);
 
-				message.cmd = MSG_PLAY;
-				_player1->SentMessage((const message_t&)message, (SOCKET&)socket);
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_PLAY;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player1->SentMessage(message, out_socket);
 			}
 		}
 	}
-
-	~GameRoom() {
-		delete _game;
-		_game = NULL;
-	}
 };
 
-GameRoom* getRoomPlayer(list<GameRoom>& games, sockaddr_in& player) {
-	for (std::list<GameRoom>::iterator it = games.begin(); it != games.end(); ++it)
+GameRoom* getRoomPlayer(list<GameRoom>* games, sockaddr_in* player) {
+	for (std::list<GameRoom>::iterator it = games->begin(); it != games->end(); ++it)
+	{
 		if ((*it).containsPlayer(player))
+		{
 			return &(*it);
+		}
+	}
 	return NULL;
 }
 
@@ -362,7 +375,7 @@ int main()
 		return -1;
 	}
 
-	SOCKET socket_out = socket(AF_INET, SOCK_DGRAM, 0);
+	//SOCKET socket_out = socket(AF_INET, SOCK_DGRAM, 0);
 #pragma endregion
 
 	list<GameRoom>* _games = new list<GameRoom>();
@@ -370,11 +383,13 @@ int main()
 	
 	sockaddr_in client;
 	int clientSize = sizeof(client);
+
 	message_t recived_message;
 	do {
 		char ip[16];
 		memset(&ip, 0, sizeof(ip));
 		memset(&recived_message, 0, sizeof(recived_message));
+		memset(&client, 0, sizeof(client));
 
 		int bytesIn = recvfrom(listening, (char*)&recived_message, sizeof(recived_message), 0, (sockaddr*)&client, &clientSize); // Escucha en el puerto.
 		
@@ -383,7 +398,7 @@ int main()
 			continue; // do nothing
 		}
 
-		int sendOk;
+		int sendOk = 0;
 
 		cout << recived_message.cmd << " " << recived_message.data << endl;
 
@@ -391,24 +406,30 @@ int main()
 		{
 			case MSG_PLAY:
 				{
-					cout << "message: " << recived_message.data << endl;
+					int32_t test;
+					memset(&test, 0, sizeof(test));
+					memcpy(&test, (char*)&recived_message.data, sizeof(test));
 
-					auto room = getRoomPlayer((list<GameRoom>&)_games, client);
+					cout << "MSG_PLAY: " << test << endl;
+
+					auto room = getRoomPlayer(_games, &client);
 					if (room == NULL)
 						continue;
-					room->play(recived_message, client);
+					room->play(&recived_message, &client, &listening);
 				}
 				break;
 			case MSG_CHAT:
 				cout << "message: " << recived_message.data << endl;
-				sendOk = sendto(socket_out, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
+				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
 				break;
 			case MSG_CONNECT:
 				{
 					cout << "Message: " << "connect to server" << endl;
-					sendOk = sendto(socket_out, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
+					sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
 
 					auto player = Player(&client);
+					player.SetAlias((char*)&recived_message.data);
+					
 					if (player.exists((const vector<Player>&)_lobby))
 						cout << "player already connected" << endl;
 					else
@@ -425,24 +446,24 @@ int main()
 						cout << "room created" << endl;
 
 						_games->push_back(room);
-						room.startGame((const SOCKET&)socket_out);
+						room.startGame(&listening);
 					}
 				}
 				break;
 			case MSG_DISCONNECT:
 				cout << "Message: " << "disconnected" << endl;
-				sendOk = sendto(socket_out, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
+				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
 				break;
 			default:
 				cerr << "Message: " << "Message type not fount" << endl;
-				sendOk = sendto(socket_out, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
+				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
 				break;
 		}
 
 		if (sendOk == SOCKET_ERROR)
 			cerr << "Hubo un error al enviar" << WSAGetLastError() << recived_message.cmd << " " << recived_message.data << endl;
-		else
-			cout << "enviado " << recived_message.cmd << " " << recived_message.data << " correctamente" << endl;
+		//else
+		//	cout << "enviado " << recived_message.cmd << " " << recived_message.data << " correctamente" << endl;
 	} while (true);
 
 	// destruir el socket
