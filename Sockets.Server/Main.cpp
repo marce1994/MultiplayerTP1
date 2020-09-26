@@ -82,8 +82,6 @@ public:
 			return 0;
 	}
 
-private:
-
 	int32_t Heuristic() {
 		for (int i = 0; i < 3; i++)
 		{
@@ -233,13 +231,22 @@ private:
 	Player* _player1;
 	Player* _player2;
 	Game* _game;
+	
 
 public:
+	GUID guidGame;
+
 	GameRoom(Player* player1, Player* player2) {
 		_player1 = player1;
 		_player2 = player2;
 
 		_game = new Game();
+		HRESULT hCreateGuid = CoCreateGuid(&guidGame);
+	}
+
+	bool gameEnded()
+	{
+		return _game->Heuristic() != 0;
 	}
 
 	void startGame(SOCKET* socket) {
@@ -272,39 +279,17 @@ public:
 		memcpy(&playedPosition, &message->data, sizeof(playedPosition));
 
 		int32_t result = -1;
-		if (_player1->equals(player))
-			result = _game->Play(O, playedPosition);
-
-		if (_player2->equals(player)) 
+		if (_player1->equals(player)) {
 			result = _game->Play(X, playedPosition);
-
-		memset(message, 0, sizeof(*message));
-
-		if (result == 1)
-		{
-			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-
-			message->cmd = MSG_WIN;
-			_player1->SentMessage(message, out_socket);
-
-			message->cmd = MSG_LOOSE;
-			_player2->SentMessage(message, out_socket);
-		}
-
-		if (result == 2)
-		{
-			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-
-			message->cmd = MSG_LOOSE;
-			_player1->SentMessage(message, out_socket);
-
-			message->cmd = MSG_WIN;
-			_player2->SentMessage(message, out_socket);
-		}
-		
-		if (result == 0)
-		{
-			if (_player1->equals(player))
+			memset(message, 0, sizeof(*message));
+			if (result < 0)
+			{
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_PLAY;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player1->SentMessage(message, out_socket);
+			}
+			if (result == 0)
 			{
 				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_UPDATE_BOARD;
@@ -316,8 +301,28 @@ public:
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 				_player2->SentMessage(message, out_socket);
 			}
+			if (result > 0)
+			{
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 
-			if (_player2->equals(player))
+				message->cmd = MSG_LOOSE;
+				_player1->SentMessage(message, out_socket);
+
+				message->cmd = MSG_WIN;
+				_player2->SentMessage(message, out_socket);
+			}
+		}
+		else if (_player2->equals(player)){
+			result = _game->Play(O, playedPosition);
+			memset(message, 0, sizeof(*message));
+			if (result < 0)
+			{
+				memset(message, 0, sizeof(*message));
+				message->cmd = MSG_PLAY;
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+				_player2->SentMessage(message, out_socket);
+			}
+			if (result == 0)
 			{
 				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_UPDATE_BOARD;
@@ -328,9 +333,22 @@ public:
 				message->cmd = MSG_PLAY;
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 				_player1->SentMessage(message, out_socket);
+			}
+			if (result > 0)
+			{
+				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
+
+				message->cmd = MSG_LOOSE;
+				_player1->SentMessage(message, out_socket);
+
+				message->cmd = MSG_WIN;
+				_player2->SentMessage(message, out_socket);
 			}
 		}
 	}
+
+	bool operator == (const GameRoom& s) const { return guidGame == s.guidGame; }
+	bool operator != (const GameRoom& s) const { return !operator==(s); }
 };
 
 GameRoom* getRoomPlayer(list<GameRoom>* games, sockaddr_in* player) {
@@ -416,6 +434,9 @@ int main()
 					if (room == NULL)
 						continue;
 					room->play(&recived_message, &client, &listening);
+
+					if (room->gameEnded())
+						_games->remove(*room);
 				}
 				break;
 			case MSG_CHAT:

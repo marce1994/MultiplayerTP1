@@ -116,17 +116,17 @@ int main()
 
 		auto timestamp = getTimestamp();
 		int bytesIn = recvfrom(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, &serverSize); // Escucha en el puerto.
-		
+
 		if (bytesIn == SOCKET_ERROR) {
 			cout << "Error al recibir data" << endl;
 			continue; // do nothing
 		}
-		
+
 		cout << endl;
 		cout << "############# MESSAGE" << message.cmd << "#############" << endl;
 		cout << endl;
 
-		if (message.cmd == MSG_PLAY || message.cmd == MSG_UPDATE_BOARD) {
+		if (message.cmd == MSG_PLAY || message.cmd == MSG_UPDATE_BOARD || message.cmd == MSG_WIN || message.cmd == MSG_LOOSE) {
 			system("cls");
 			memcpy(&board, (char*)&message.data, sizeof(board));
 			for (size_t i = 0; i < 3; i++)
@@ -134,7 +134,7 @@ int main()
 				for (size_t j = 0; j < 3; j++)
 				{
 					auto position = (i * 3 + j);
-					if(board[i][j] == EMPTY)
+					if (board[i][j] == EMPTY)
 						cout << " " << position << " ";
 					else
 						cout << " " << first[(PlayerType)board[i][j]] << " ";
@@ -147,41 +147,69 @@ int main()
 
 		switch (message.cmd)
 		{
-			case MSG_CHAT:
-				cout << message.data << endl;
-				break;
-			case MSG_SET_ALIAS:
-				break;
-			case MSG_CONNECT:
-				break;
-			case MSG_DISCONNECT:
-				break;
-			case MSG_PLAY:
-					memcpy(&board, (char*)&message.data, sizeof(board));
+		case MSG_CHAT:
+			cout << message.data << endl;
+			break;
+		case MSG_PLAY:
+			memcpy(&board, (char*)&message.data, sizeof(board));
 
-					int32_t imput_number;
-					memset(&imput_number, 0, sizeof(imput_number));
+			int32_t imput_number;
+			memset(&imput_number, 0, sizeof(imput_number));
 
-					cout << "input: ";
-					cin >> imput_number;
+			cout << "input: ";
+			cin >> imput_number;
 
-					memset(&message, 0, sizeof(message));
-					
-					message.cmd = MSG_PLAY;
-					memcpy(&message.data, (char*)&imput_number, sizeof(imput_number));
-					
-					sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
-				break;
-			case MSG_KICK:
-				cout << "al lobby pt" << endl;
+			memset(&message, 0, sizeof(message));
+
+			message.cmd = MSG_PLAY;
+			memcpy(&message.data, (char*)&imput_number, sizeof(imput_number));
+
+			sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
+			break;
+		case MSG_KICK:
+			cout << "kicked!!! al lobby pt" << endl;
+			return 0;
+			break;
+		case MSG_UPDATE_BOARD:
+			break;
+		case MSG_WIN: {
+
+
+			cout << "Ganaste! al lobby pt" << endl;
+			string inp;
+			cout << "Quiere jugar de nuevo? (s/n)" << endl;
+			cin >> inp;
+			if (inp == "s") {
+				message.cmd = MSG_CONNECT;
+				memcpy(&message.data, alias.c_str(), sizeof(alias));
+				sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
+			}
+			else
+			{
 				return 0;
-				break;
-			case MSG_UPDATE_BOARD:
-				break;
-			case MSG_WIN:
-				break;
-			case MSG_LOOSE:
-				break;
+			}
+
+			cout << "Esperando nueva partida...." << endl;
+		}
+					break;
+		case MSG_LOOSE: {
+			cout << "Perdiste, al lobby pt." << endl;
+			string inp;
+			cout << "Quiere jugar de nuevo? (s/n)" << endl;
+			cin >> inp;
+			if (inp == "s") {
+				message.cmd = MSG_CONNECT;
+				memcpy(&message.data, alias.c_str(), sizeof(alias));
+				sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
+			}
+			else
+			{
+				return 0;
+			}
+
+			cout << "Esperando nueva partida...." << endl;
+		}
+					  break;
 		}
 
 		if (sendOk == SOCKET_ERROR)

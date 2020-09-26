@@ -41,8 +41,8 @@ enum CommandType {
 
 enum PlayerType {
 	EMPTY = -0x001,
-	X = 0x00,
-	O = 0x001
+	X = 0x001,
+	O = 0x002
 };
 
 typedef struct {
