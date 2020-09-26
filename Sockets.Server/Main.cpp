@@ -184,6 +184,7 @@ private:
 	char _alias[255];
 
 public:
+
 	Player(sockaddr_in* client) {
 		memset(&_client, 0, sizeof(_client));
 		memcpy(&_client, client, sizeof(_client));
@@ -196,6 +197,7 @@ public:
 	void SetAlias(char* alias) {
 		memset(_alias, 0, sizeof(_alias));
 		memcpy(&_alias, alias, sizeof(_alias));
+		cout << "Player: " << _alias << endl;
 	}
 
 	char* GetIp() {
@@ -426,6 +428,8 @@ int main()
 					sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
 
 					auto player = Player(&client);
+					player.SetAlias((char*)&recived_message.data);
+					
 					if (player.exists((const vector<Player>&)_lobby))
 						cout << "player already connected" << endl;
 					else

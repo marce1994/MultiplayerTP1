@@ -89,8 +89,13 @@ int main()
 	int serverSize = sizeof(server);
 	message_t message;
 
+	string alias = "";
+	cout << "alias: ";
+	cin >> alias;
+
 	memset(&message, 0, sizeof(message));
 	message.cmd = MSG_CONNECT;
+	memcpy(&message.data, alias.c_str(), sizeof(alias));
 
 	int sendOk = sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
 	if (sendOk == SOCKET_ERROR)
@@ -99,8 +104,11 @@ int main()
 		return -1;
 	}
 
-	int32_t board[3][3] = { { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY} };
+	std::map<PlayerType, string> first;
+	first[O] = "O";
+	first[X] = "X";
 
+	int32_t board[3][3] = { { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY} };
 	int32_t aux = 0;
 
 	while (true) {
@@ -120,14 +128,16 @@ int main()
 
 		if (message.cmd == MSG_PLAY || message.cmd == MSG_UPDATE_BOARD) {
 			system("cls");
-			aux++;
-			cout << "board updated" << aux << endl;
 			memcpy(&board, (char*)&message.data, sizeof(board));
 			for (size_t i = 0; i < 3; i++)
 			{
 				for (size_t j = 0; j < 3; j++)
 				{
-					cout << " " << board[i][j] << " ";
+					auto position = (i * 3 + j);
+					if(board[i][j] == EMPTY)
+						cout << " " << position << " ";
+					else
+						cout << " " << first[(PlayerType)board[i][j]] << " ";
 				}
 				cout << endl;
 			}
@@ -176,8 +186,8 @@ int main()
 
 		if (sendOk == SOCKET_ERROR)
 			cerr << "Hubo un error al enviar" << WSAGetLastError() << message.cmd << " " << message.data << endl;
-		else
-			cout << "enviado " << message.cmd << " " << message.data << " correctamente" << endl;
+		/*else
+			cout << "enviado " << message.cmd << " " << message.data << " correctamente" << endl;*/
 	}
 
 	//cerrar el socket
