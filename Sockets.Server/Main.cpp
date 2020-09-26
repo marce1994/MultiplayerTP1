@@ -190,7 +190,7 @@ public:
 	}
 
 	void SentMessage(message_t* message, SOCKET* socket_out) {
-		int sendOk = sendto((*socket_out), (char*)message, sizeof(message), 0, (sockaddr*)&_client, sizeof(_client));
+		int sendOk = sendto(*socket_out, (char*)message, sizeof(*message), 0, (sockaddr*)&_client, sizeof(_client));
 	}
 
 	void SetAlias(char* alias) {
@@ -263,9 +263,9 @@ public:
 		return _player1->equals(player) || _player2->equals(player);
 	}
 
-	void play(message_t* message, sockaddr_in* socket)
+	void play(message_t* message, sockaddr_in* player_socket, SOCKET* out_socket)
 	{
-		auto player = Player(socket);
+		auto player = Player(player_socket);
 		int32_t playedPosition;
 		memcpy(&playedPosition, &message->data, sizeof(playedPosition));
 
@@ -276,17 +276,17 @@ public:
 		if (_player2->equals(player)) 
 			result = _game->Play(X, playedPosition);
 
-		memset(&message, 0, sizeof(message));
+		memset(message, 0, sizeof(*message));
 
 		if (result == 1)
 		{
 			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 
 			message->cmd = MSG_WIN;
-			_player1->SentMessage(message, (SOCKET*)socket);
+			_player1->SentMessage(message, out_socket);
 
 			message->cmd = MSG_LOOSE;
-			_player2->SentMessage(message, (SOCKET*)socket);
+			_player2->SentMessage(message, out_socket);
 		}
 
 		if (result == 2)
@@ -294,38 +294,38 @@ public:
 			memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
 
 			message->cmd = MSG_LOOSE;
-			_player1->SentMessage(message, (SOCKET*)socket);
+			_player1->SentMessage(message, out_socket);
 
 			message->cmd = MSG_WIN;
-			_player2->SentMessage(message, (SOCKET*)socket);
+			_player2->SentMessage(message, out_socket);
 		}
 		
 		if (result == 0)
 		{
 			if (_player1->equals(player))
 			{
-				memset(&message, 0, sizeof(message));
+				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_UPDATE_BOARD;
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-				_player1->SentMessage(message, (SOCKET*)socket);
+				_player1->SentMessage(message, out_socket);
 
-				memset(&message, 0, sizeof(message));
+				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_PLAY;
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-				_player2->SentMessage(message, (SOCKET*)socket);
+				_player2->SentMessage(message, out_socket);
 			}
 
 			if (_player2->equals(player))
 			{
-				memset(&message, 0, sizeof(message));
+				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_UPDATE_BOARD;
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-				_player2->SentMessage(message, (SOCKET*)socket);
+				_player2->SentMessage(message, out_socket);
 
-				memset(&message, 0, sizeof(message));
+				memset(message, 0, sizeof(*message));
 				message->cmd = MSG_PLAY;
 				memcpy(&message->data, (char*)&_game->_board, sizeof(_game->_board));
-				_player1->SentMessage(message, (SOCKET*)socket);
+				_player1->SentMessage(message, out_socket);
 			}
 		}
 	}
@@ -413,7 +413,7 @@ int main()
 					auto room = getRoomPlayer(_games, &client);
 					if (room == NULL)
 						continue;
-					room->play(&recived_message, &client);
+					room->play(&recived_message, &client, &listening);
 				}
 				break;
 			case MSG_CHAT:
