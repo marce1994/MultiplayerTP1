@@ -101,6 +101,8 @@ int main()
 
 	int32_t board[3][3] = { { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY}, { EMPTY, EMPTY, EMPTY} };
 
+	int32_t aux = 0;
+
 	while (true) {
 		memset(&message, 0, sizeof(message));
 
@@ -111,9 +113,16 @@ int main()
 			cout << "Error al recibir data" << endl;
 			continue; // do nothing
 		}
+		
+		cout << endl;
+		cout << "############# MESSAGE" << message.cmd << "#############" << endl;
+		cout << endl;
 
 		if (message.cmd == MSG_PLAY || message.cmd == MSG_UPDATE_BOARD) {
 			system("cls");
+			aux++;
+			cout << "board updated" << aux << endl;
+			memcpy(&board, (char*)&message.data, sizeof(board));
 			for (size_t i = 0; i < 3; i++)
 			{
 				for (size_t j = 0; j < 3; j++)
@@ -132,32 +141,29 @@ int main()
 				cout << message.data << endl;
 				break;
 			case MSG_SET_ALIAS:
-
 				break;
 			case MSG_CONNECT:
 				break;
 			case MSG_DISCONNECT:
 				break;
 			case MSG_PLAY:
-					cout << "/help" << "ayuda" << endl;
 					memcpy(&board, (char*)&message.data, sizeof(board));
 
-					int32_t input;
-					cin >> input;
+					int32_t imput_number;
+					memset(&imput_number, 0, sizeof(imput_number));
 
-					message.cmd = MSG_PLAY;
+					cout << "input: ";
+					cin >> imput_number;
 
-					memset(&message.data, 0, sizeof(message.data));
-					memcpy(&message.data, (char *)&input, sizeof(input));
+					memset(&message, 0, sizeof(message));
 					
-					sendto(iosocket, (char*)&message, bytesIn, 0, (sockaddr*)&server, sizeof(server));
-
-					cout << "sent: " << message.data << endl;
+					message.cmd = MSG_PLAY;
+					memcpy(&message.data, (char*)&imput_number, sizeof(imput_number));
+					
+					sendto(iosocket, (char*)&message, sizeof(message), 0, (sockaddr*)&server, sizeof(server));
 				break;
 			case MSG_KICK:
 				cout << "al lobby pt" << endl;
-				cin;
-
 				return 0;
 				break;
 			case MSG_UPDATE_BOARD:
