@@ -1,5 +1,5 @@
 # GCC image
-FROM gcc:4.9
+FROM gcc:latest
 
 # Directorio de trabajo
 WORKDIR /app
