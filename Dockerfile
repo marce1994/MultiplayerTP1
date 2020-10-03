@@ -11,6 +11,6 @@ COPY . .
 RUN g++ -o Test ./Sockets.Server/Main.cpp
 
 # Lo corro porque si
-CMD ["./Test"]
+ENTRYPOINT ["./Test"]
 
 # Correr el "docker run <name> -p "puerto:puerto" -d" - > docker run socket-test -p "3000:3000" -d
