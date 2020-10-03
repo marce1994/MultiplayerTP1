@@ -253,7 +253,7 @@ public:
 	}
 
 	bool exists(const vector<Player>& players) {
-		for (auto p : players)
+		for (Player p : players)
 			return equals(p);
 		return false;
 	}
@@ -302,7 +302,7 @@ public:
 		memset(&message, 0, sizeof(message));
 		memcpy(message.data, _game->_board, sizeof(_game->_board));
 		
-		auto random = rand() % 100 + 1;
+		int random = rand() % 100 + 1;
 
 		if (random > 50) {
 			message.cmd = MSG_PLAY;
@@ -326,7 +326,7 @@ public:
 
 	void play(message_t* message, sockaddr_in* player_socket, SOCKET* out_socket)
 	{
-		auto player = Player(player_socket);
+		Player player = Player(player_socket);
 		int32_t playedPosition;
 		memcpy(&playedPosition, &message->data, sizeof(playedPosition));
 
@@ -468,7 +468,7 @@ int main()
 
 			if (nbytes > 0) {
 				cout << "rooms:" << endl;
-				for (auto room : *_games)
+				for (GameRoom room : *_games)
 				{
 					cout << room.guidGame.Data1 << "-";
 				}
@@ -484,7 +484,7 @@ int main()
 					memset(&test, 0, sizeof(test));
 					memcpy(&test, (char*)&recived_message.data, sizeof(test));
 
-					auto room = getRoomPlayer(_games, &sender);
+					GameRoom* room = getRoomPlayer(_games, &sender);
 					if (room == NULL)
 						continue;
 					room->play(&recived_message, &sender, &listener);
@@ -502,7 +502,7 @@ int main()
 					cout << "Message: " << "connect to server" << endl;
 					sendOk = sendto(listener, (char*)&recived_message, nbytes, 0, (sockaddr*)&sender, sizeof(sender));
 
-					auto player = Player(&sender);
+					Player player = Player(&sender);
 					player.SetAlias((char*)&recived_message.data);
 
 					if (player.exists((const vector<Player>&)_lobby))
@@ -512,11 +512,11 @@ int main()
 
 					if (_lobby->size() >= 2)
 					{
-						auto p1 = _lobby->front();
+						Player p1 = _lobby->front();
 						_lobby->pop_front();
-						auto p2 = _lobby->front();
+						Player p2 = _lobby->front();
 						_lobby->pop_front();
-						auto room = GameRoom(&p1, &p2);
+						GameRoom room = GameRoom(&p1, &p2);
 
 						cout << "room created" << endl;
 
@@ -545,9 +545,7 @@ int main()
 		}
 	}
 
-	// destruir el socket
-	closesocket(listener);
+	sockQuit();
 
-	// cleanup winsock
-	WSACleanup();
+	return 0;
 }

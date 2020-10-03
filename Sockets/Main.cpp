@@ -132,7 +132,7 @@ int main()
 			{
 				for (size_t j = 0; j < 3; j++)
 				{
-					auto position = (i * 3 + j);
+					int position = (i * 3 + j);
 					if (board[i][j] == EMPTY)
 						cout << " " << position << " ";
 					else
