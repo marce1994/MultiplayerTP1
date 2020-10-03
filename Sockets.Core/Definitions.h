@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#define PORT 9034
+#define PORT 9000
 
 enum CommandType {
 	MSG_CHAT = 0x00,
