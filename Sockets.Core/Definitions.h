@@ -2,7 +2,8 @@
 #include <cstddef>
 #include <rpcndr.h>
 #include <cstdint>
-#include <vcruntime_string.h>
+
+#define PORT 9034
 
 enum CommandType {
 	MSG_CHAT = 0x00,
@@ -15,27 +16,12 @@ enum CommandType {
 	MSG_WIN = 0x008,
 	MSG_LOOSE = 0x009
 	/*
-	
-	
-	
-	
 	MSG_ASD = 0x008;
 	MSG_ASD = 0x009;
 	MSG_ASD = 0x00A;
 	MSG_ASD = 0x00B;
 	MSG_ASD = 0x00C;
 	MSG_ASD = 0x00D;
-	MSG_ASD = 0x00E;
-	MSG_ASD = 0x00F;
-	MSG_ASD = 0x010;
-	MSG_ASD = 0x011;
-	MSG_ASD = 0x012;
-	MSG_ASD = 0x013;
-	MSG_ASD = 0x014;
-	MSG_ASD = 0x015;
-	MSG_ASD = 0x016;
-	MSG_ASD = 0x017;
-	MSG_ASD = 0x018;
 	*/
 };
 

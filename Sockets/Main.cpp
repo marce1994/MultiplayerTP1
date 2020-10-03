@@ -64,7 +64,6 @@ const char* getTimestamp() {
 int main()
 {
 	string ip = "127.0.0.1";
-	int puerto = 8900;
 
 #pragma region WINSOKS_INIT
 	WSADATA data;
@@ -80,7 +79,7 @@ int main()
 	sockaddr_in server;
 
 	server.sin_family = AF_INET;
-	server.sin_port = htons(puerto);
+	server.sin_port = htons(PORT);
 
 	inet_pton(AF_INET, ip.c_str(), &server.sin_addr);
 	SOCKET iosocket = socket(AF_INET, SOCK_DGRAM, 0);

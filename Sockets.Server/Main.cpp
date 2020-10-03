@@ -1,15 +1,69 @@
-#include <iostream>
-#include <WS2tcpip.h>
-#include <string>
+
+#ifdef _WIN32
+// taken from https://stackoverflow.com/questions/28027937/cross-platform-sockets
+/* See http://stackoverflow.com/questions/12765743/getaddrinfo-on-win32 */
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501  /* Windows XP. */
+#endif
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib,"ws2_32.lib") //Winsock Library
+#else
+/* Assume that any non-Windows platform uses POSIX-style sockets instead. */
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netdb.h>  /* Needed for getaddrinfo() and freeaddrinfo() */
+#include <unistd.h> /* Needed for close() */
+typedef int SOCKET;
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include "../Sockets.Core/Definitions.h"
+
+#include <iostream>
 #include <vector>
 #include <map>
 #include <list>
-#include "../Sockets.Core/Definitions.h"
-
-#pragma comment (lib, "ws2_32.lib")
 
 using namespace std;
+
+#pragma region SOCKS_FUNCTIONS
+int sockInit(void)
+{
+#ifdef _WIN32
+	WSADATA wsa_data;
+	return WSAStartup(MAKEWORD(1, 1), &wsa_data);
+#else
+	return 0;
+#endif
+}
+
+int sockQuit(void)
+{
+#ifdef _WIN32
+	return WSACleanup();
+#else
+	return 0;
+#endif
+}
+
+/* Note: For POSIX, typedef SOCKET as an int. */
+int sockClose(SOCKET sock)
+{
+	int status = 0;
+#ifdef _WIN32
+	status = shutdown(sock, SD_BOTH);
+	if (status == 0) { status = closesocket(sock); }
+#else
+	status = shutdown(sock, SHUT_RDWR);
+	if (status == 0) { status = close(sock); }
+#endif
+	return status;
+}
+#pragma endregion
 
 class Game {
 public:
@@ -198,12 +252,6 @@ public:
 		cout << "Player: " << _alias << endl;
 	}
 
-	char* GetIp() {
-		char ip[16];
-		inet_ntop(AF_INET, &_client.sin_addr, ip, sizeof(ip));
-		return ip;
-	}
-
 	bool exists(const vector<Player>& players) {
 		for (auto p : players)
 			return equals(p);
@@ -369,96 +417,94 @@ GameRoom* getRoomPlayer(list<GameRoom>* games, sockaddr_in* player) {
 int main()
 {
 #pragma region WINSOCKS_INITIALIZE
-	WSADATA data;
-	WORD ver = MAKEWORD(2, 2);
-	int wsOk = WSAStartup(ver, &data);
-
-	if (wsOk != 0) {
-		cerr << "no se pudo iniciar winsock" << endl;
-		return -1;
-	}
-
-	SOCKET listening = socket(AF_INET, SOCK_DGRAM, 0);
-	if (listening == INVALID_SOCKET) {
-		cerr << "Invalid socket" << endl;
-		return -1;
-	}
+	fd_set master;	// Master file descriptor list
+	SOCKET listener = socket(AF_INET, SOCK_DGRAM, 0);
 
 	// bind el socket (atar el socket a una dupla ip:puerto)
-	sockaddr_in hint;
-	hint.sin_family = AF_INET;
-	hint.sin_port = htons(8900); // puerto en el que vamos a escuchar
-	inet_pton(AF_INET, "127.0.0.1", &hint.sin_addr); // ip loopback
+	struct sockaddr_in server;
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_port = htons(PORT);
 
-	int bindResult = bind(listening, (sockaddr*)&hint, sizeof(hint)); // bindea el puerto de escucha
+	struct sockaddr_in sender;
 
-	if (bindResult == SOCKET_ERROR) {
-		cerr << "No se pudo hacer el bind" << endl;
-		return -1;
+	sockInit();
+	listener = socket(AF_INET, SOCK_DGRAM, 0);
+	if (listener == INVALID_SOCKET || listener < 0) {
+		exit(1);
 	}
 
-	//SOCKET socket_out = socket(AF_INET, SOCK_DGRAM, 0);
+	//fixme: check error values for unix
+	if (bind(listener, (struct sockaddr*) & server, sizeof(server)) == SOCKET_ERROR) {
+		sockClose(listener);
+		exit(2);
+	}
 #pragma endregion
 
 	list<GameRoom>* _games = new list<GameRoom>();
 	list<Player>* _lobby = new list<Player>();
-	
-	sockaddr_in client;
-	int clientSize = sizeof(client);
 
 	message_t recived_message;
-	do {
-		char ip[16];
-		memset(&ip, 0, sizeof(ip));
+
+	struct timeval tv;
+	tv.tv_sec = 0;
+	tv.tv_usec = 10000; // 10ms
+	int nbytes;
+
+	int n;
+	int senderSize = sizeof(sender);
+
+	for (;;) {
 		memset(&recived_message, 0, sizeof(recived_message));
-		memset(&client, 0, sizeof(client));
 
-		int bytesIn = recvfrom(listening, (char*)&recived_message, sizeof(recived_message), 0, (sockaddr*)&client, &clientSize); // Escucha en el puerto.
-		
-		if (bytesIn == SOCKET_ERROR) {
-			cout << "Error al recibir data" << endl;
-			continue; // do nothing
-		}
+		FD_ZERO(&master);
+		FD_SET(listener, &master);
 
-		cout << "partidas:" << endl;
-		for (auto room: *_games)
-		{
-			cout << room.guidGame.Data1;
-			cout << "////";
-		}
-		cout << endl;
+		n = select(listener, &master, NULL, NULL, &tv);
 
-		int sendOk = 0;
-		
-		switch (recived_message.cmd)
-		{
-			case MSG_PLAY:
+		if (n > 0) {
+			// leer el socket
+			nbytes = recvfrom(listener, (char*)&recived_message, sizeof(recived_message), 0, (sockaddr*)&sender, &senderSize);
+
+			if (nbytes > 0) {
+				cout << "rooms:" << endl;
+				for (auto room : *_games)
+				{
+					cout << room.guidGame.Data1 << "-";
+				}
+				cout << endl;
+
+				int sendOk = 0;
+
+				switch (recived_message.cmd)
+				{
+				case MSG_PLAY:
 				{
 					int32_t test;
 					memset(&test, 0, sizeof(test));
 					memcpy(&test, (char*)&recived_message.data, sizeof(test));
 
-					auto room = getRoomPlayer(_games, &client);
+					auto room = getRoomPlayer(_games, &sender);
 					if (room == NULL)
 						continue;
-					room->play(&recived_message, &client, &listening);
+					room->play(&recived_message, &sender, &listener);
 
 					if (room->gameEnded())
 						_games->remove(*room);
 				}
 				break;
-			case MSG_CHAT:
-				cout << "message: " << recived_message.data << endl;
-				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
-				break;
-			case MSG_CONNECT:
+				case MSG_CHAT:
+					cout << "message: " << recived_message.data << endl;
+					sendOk = sendto(listener, (char*)&recived_message, nbytes, 0, (sockaddr*)&sender, sizeof(sender));
+					break;
+				case MSG_CONNECT:
 				{
 					cout << "Message: " << "connect to server" << endl;
-					sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
+					sendOk = sendto(listener, (char*)&recived_message, nbytes, 0, (sockaddr*)&sender, sizeof(sender));
 
-					auto player = Player(&client);
+					auto player = Player(&sender);
 					player.SetAlias((char*)&recived_message.data);
-					
+
 					if (player.exists((const vector<Player>&)_lobby))
 						cout << "player already connected" << endl;
 					else
@@ -475,54 +521,33 @@ int main()
 						cout << "room created" << endl;
 
 						_games->push_back(room);
-						room.startGame(&listening);
+						room.startGame(&listener);
 					}
 				}
 				break;
-			case MSG_DISCONNECT:
-				cout << "Message: " << "disconnected" << endl;
-				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
-				break;
-			default:
-				cerr << "Message: " << "Message type not fount" << endl;
-				sendOk = sendto(listening, (char*)&recived_message, bytesIn, 0, (sockaddr*)&client, sizeof(client));
-				break;
-		}
+				case MSG_DISCONNECT:
+					cout << "Message: " << "disconnected" << endl;
+					sendOk = sendto(listener, (char*)&recived_message, nbytes, 0, (sockaddr*)&sender, sizeof(sender));
+					break;
+				default:
+					cerr << "Message: " << "Message type not fount" << endl;
+					sendOk = sendto(listener, (char*)&recived_message, nbytes, 0, (sockaddr*)&sender, sizeof(sender));
+					break;
+				}
 
-		if (sendOk == SOCKET_ERROR)
-			cerr << "Hubo un error al enviar" << WSAGetLastError() << recived_message.cmd << " " << recived_message.data << endl;
-		//else
-		//	cout << "enviado " << recived_message.cmd << " " << recived_message.data << " correctamente" << endl;
-	} while (true);
+				if (sendOk == SOCKET_ERROR)
+					cerr << "Hubo un error al enviar" << WSAGetLastError() << recived_message.cmd << " " << recived_message.data << endl;
+			}
+		}
+		else if (n < 0) {
+			perror("select");
+			exit(4);
+		}
+	}
 
 	// destruir el socket
-	closesocket(listening);
+	closesocket(listener);
 
 	// cleanup winsock
 	WSACleanup();
 }
-
-// Server
-//=======================
-// Recibir un continuo de mensajes -> con un while true va
-// Recibir IP y puerto del cliente -> crear un sockaddr_in
-// Enviar mensajes desde diferentes clientes -> nc.exe
-// Responder "mensaje recibido" al cliente. o responder con el mismo mensaje
-
-// Cliente y server
-//=======================
-// Enviar y recibir una estructura (opcode o algo asi).
-// struct:
-//		byte cmd;
-//		char data[255];
-//		
-//	cmd == 0
-//		=> data es un mensaje de texto
-//	cmd == 1
-//		=> data, es mi alias en este extranio chat
-//
-//	Tener una tabla de alias en los clientes, y al imprimir los mensajes, si esta seteado el alias, imprimir
-//
-//	ALIAS dice: mensaje
-//	y sino
-//	120.0.0.1:345 dice: mensaje
