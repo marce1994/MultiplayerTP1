@@ -537,7 +537,7 @@ int main()
 				}
 
 				if (sendOk == SOCKET_ERROR)
-					cerr << "Hubo un error al enviar" << WSAGetLastError() << recived_message.cmd << " " << recived_message.data << endl;
+					cerr << "Hubo un error al enviar" << recived_message.cmd << " " << recived_message.data << endl;
 			}
 		}
 		else if (n < 0) {
