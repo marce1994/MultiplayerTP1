@@ -285,14 +285,16 @@ private:
 	
 
 public:
-	GUID guidGame;
+	string guidGame;
 
 	GameRoom(Player* player1, Player* player2) {
 		_player1 = player1;
 		_player2 = player2;
 
+
 		_game = new Game();
-		HRESULT hCreateGuid = CoCreateGuid(&guidGame);
+		
+		guidGame = xg::newGuid();
 	}
 
 	bool gameEnded()
@@ -473,7 +475,7 @@ int main()
 				cout << "rooms:" << endl;
 				for (GameRoom room : *_games)
 				{
-					cout << room.guidGame.Data1 << "-";
+					cout << room.guidGame << "-";
 				}
 				cout << endl;
 
