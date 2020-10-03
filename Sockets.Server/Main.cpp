@@ -24,7 +24,6 @@ typedef int SOCKET;
 #include <string.h>
 #include <sys/types.h>
 #include "../Sockets.Core/Definitions.h"
-#include "../include/crossguid/guid.hpp"
 
 #include <iostream>
 #include <vector>
@@ -285,16 +284,15 @@ private:
 	
 
 public:
-	string guidGame;
+	int guidGame;
 
 	GameRoom(Player* player1, Player* player2) {
 		_player1 = player1;
 		_player2 = player2;
 
-
 		_game = new Game();
 		
-		guidGame = xg::newGuid();
+		guidGame = rand() % INT_MAX;
 	}
 
 	bool gameEnded()
