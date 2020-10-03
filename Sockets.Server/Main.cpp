@@ -17,6 +17,7 @@
 typedef int SOCKET;
 #define INVALID_SOCKET  (SOCKET)(~0)
 #define SOCKET_ERROR            (-1)
+#define INT_MAX       2147483647
 #endif
 
 #include <stdio.h>
@@ -270,10 +271,6 @@ public:
 		}
 		return false;
 	}
-
-	char* GetPort() {
-		return (char*)ntohs(_client.sin_port);
-	}
 };
 
 class GameRoom {
@@ -452,10 +449,11 @@ int main()
 	struct timeval tv;
 	tv.tv_sec = 0;
 	tv.tv_usec = 10000; // 10ms
+	
 	int nbytes;
 
 	int n;
-	int senderSize = sizeof(sender);
+	socklen_t senderSize = sizeof(sender);
 
 	for (;;) {
 		memset(&recived_message, 0, sizeof(recived_message));
