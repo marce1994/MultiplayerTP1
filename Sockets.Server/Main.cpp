@@ -15,6 +15,8 @@
 #include <netdb.h>  /* Needed for getaddrinfo() and freeaddrinfo() */
 #include <unistd.h> /* Needed for close() */
 typedef int SOCKET;
+#define INVALID_SOCKET  (SOCKET)(~0)
+#define SOCKET_ERROR            (-1)
 #endif
 
 #include <stdio.h>
@@ -22,6 +24,7 @@ typedef int SOCKET;
 #include <string.h>
 #include <sys/types.h>
 #include "../Sockets.Core/Definitions.h"
+#include "../include/crossguid/guid.hpp"
 
 #include <iostream>
 #include <vector>
@@ -435,7 +438,7 @@ int main()
 	}
 
 	//fixme: check error values for unix
-	if (bind(listener, (struct sockaddr*) & server, sizeof(server)) == SOCKET_ERROR) {
+	if (bind(listener, (struct sockaddr*)&server, sizeof(server)) == SOCKET_ERROR) {
 		sockClose(listener);
 		exit(2);
 	}
