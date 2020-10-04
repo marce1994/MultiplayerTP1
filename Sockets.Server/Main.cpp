@@ -447,7 +447,7 @@ int main()
 	message_t recived_message;
 
 	struct timeval tv;
-	tv.tv_sec = 0;
+	tv.tv_sec = 1;
 	tv.tv_usec = 10000; // 10ms
 	
 	int nbytes;
