@@ -30,6 +30,7 @@ typedef int SOCKET;
 #include <vector>
 #include <map>
 #include <list>
+#include <thread>
 
 using namespace std;
 
@@ -447,7 +448,7 @@ int main()
 	message_t recived_message;
 
 	struct timeval tv;
-	tv.tv_sec = 1;
+	tv.tv_sec = 0;
 	tv.tv_usec = 10000; // 10ms
 	
 	int nbytes;
@@ -456,6 +457,7 @@ int main()
 	socklen_t senderSize = sizeof(sender);
 
 	for (;;) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		memset(&recived_message, 0, sizeof(recived_message));
 
 		FD_ZERO(&master);
